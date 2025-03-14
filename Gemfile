@@ -65,3 +65,4 @@ group :test do
 end
 
 gem "foreman", "~> 0.88.1"
+gem "faraday"

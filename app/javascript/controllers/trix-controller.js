@@ -1,45 +1,56 @@
-// @ assets/javascripts/controllers/trix-controller.js
 import { Controller } from "@hotwired/stimulus";
 
-export default class TrixController extends Controller {
-
+export default class extends Controller {
   connect() {
+    // Use an arrow function to preserve `this` context
+    addEventListener("trix-initialize", (event) => {
+      const trixEditor = event.target;
 
-    // wait for the trix editor is attached to the DOM to do stuff
-    addEventListener("trix-initialize", function (event) {
-      console.log("im inititalized!");
+      // Create the AI button
+      const aiButton = document.createElement("button");
+      aiButton.setAttribute("type", "button");
+      aiButton.setAttribute("tabindex", -1);
+      aiButton.setAttribute("title", "Correct Orthography");
+      aiButton.classList.add("trix-button"); // Use Trix's default button styling
+      aiButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+        </svg>
+      `;
 
-        // @ assets/javascripts/controllers/trix-controller.js
-        // inside the 'trix-initialize' event listener
+      // Append the button to the toolbar
+      document.querySelector(".trix-button-group--text-tools").appendChild(aiButton);
 
-        // initialize underline attribute
-        Trix.config.textAttributes.underline = {
-            tagName: "u",
-            style: { textDecoration: "underline" },
-            inheritable: true,
-            parser: function (element) {
-            var style = window.getComputedStyle(element);
-            return style.textDecoration === "underline";
-            },
-        };
-        // create underline button
-        let underlineEl = document.createElement("button");
-        underlineEl.setAttribute("type", "button");
-        underlineEl.setAttribute("data-trix-attribute", "underline");
-        underlineEl.setAttribute("data-trix-key", "u");
-        underlineEl.setAttribute("tabindex", -1);
-        underlineEl.setAttribute("title", "underline");
-        underlineEl.classList.add("trix-button", "trix-button--icon-underline");
-        underlineEl.innerHTML = "U";
+      // Attach the click event to the button
+      aiButton.addEventListener("click", () => {
+        this.correctOrthography(trixEditor); // `this` now refers to the Stimulus controller
+      });
+    });
+  }
 
-        // add button to toolbar - inside the text tools group
-        document.querySelector(".trix-button-group--text-tools").appendChild(underlineEl);
-    }, true);
+  async correctOrthography(trixEditor) {
+    try {
+      const editor = trixEditor.editor;
+      const content = editor.getDocument().toString(); // Get the current content
 
-    // remove file upload handling
-    addEventListener("trix-file-accept", function (event) {
-      event.preventDefault();
-    }, true);
+      // Send the content to the backend for correction
+      const response = await fetch("/orthography/correct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: content }),
+      });
 
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+
+      const result = await response.json();
+
+      // Update the editor with the corrected text
+      editor.loadHTML(result.corrected_text);
+    } catch (error) {
+      console.error("Error correcting orthography:", error);
+      alert("An error occurred while correcting orthography.");
+    }
   }
 }
